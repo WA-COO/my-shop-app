@@ -1,4 +1,4 @@
-// server/index.js
+// server/index.js (修正版)
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -13,7 +13,7 @@ const Order = require("./models/Order");
 
 const app = express();
 // Cloud Run 會自動注入 PORT 環境變數，預設通常是 8080
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080; // 修正: 確保本地預設值也是 8080
 
 // Middleware
 app.use(cors());
@@ -21,7 +21,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // MongoDB Connection
-const MONGO_URI = process.env.MONGO_URI; 
+const MONGO_URI = process.env.MONGO_URI;
 
 if (MONGO_URI) {
   mongoose
@@ -35,15 +35,15 @@ if (MONGO_URI) {
 // ==========================================
 // ECPay Config
 // ==========================================
-const APP_URL = process.env.APP_URL || "http://localhost:5173"; 
+const APP_URL = process.env.APP_URL || "http://localhost:5173";
 
 const ECPayConf = {
   MerchantID: process.env.ECPAY_MERCHANT_ID || "3002607",
   HashKey: process.env.ECPAY_HASH_KEY || "pwFHCqoQZGmho4w6",
   HashIV: process.env.ECPAY_HASH_IV || "EkRm7iFT261dpevs",
   Gateway: "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5",
-  ReturnURL: `${APP_URL}/api/payment/return`, 
-  ClientBackURL: `${APP_URL}/#/orders`, 
+  ReturnURL: `${APP_URL}/api/payment/return`,
+  ClientBackURL: `${APP_URL}/#/orders`,
 };
 
 // --- 綠界加密輔助函式 ---
@@ -260,7 +260,7 @@ app.get("/api/orders/:email", async (req, res) => {
   try {
     const { email } = req.params;
     const orders = await Order.find({ userEmail: email }).sort({
-      date: -1, 
+      date: -1,
     });
     res.json(orders);
   } catch (error) {
@@ -352,18 +352,20 @@ app.post("/api/payment/return", async (req, res) => {
 });
 
 // ==========================================
-// 🚀 Production 靜態檔案設定
+// 🚀 Production 靜態檔案設定 (已修正)
 // ==========================================
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === "production") {
   // Dockerfile 將 dist 複製到了 /app/dist
   // 而 server 執行在 /app/server
   // 所以相對路徑是 ../dist
-  const distPath = path.join(__dirname, '../dist');
-  
+  const distPath = path.join(__dirname, "../dist");
+
+  // 1. 服務靜態檔案
   app.use(express.static(distPath));
 
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
+  // 2. 修正：使用 app.use 捕捉所有未匹配路由 (解決 PathError)
+  app.use((req, res) => {
+    res.sendFile(path.join(distPath, "index.html"));
   });
 }
 
