@@ -5,7 +5,6 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const crypto = require("crypto");
 const path = require("path");
-const fs = require("fs"); // 引入 fs 模組，用於檢查 dist 資料夾
 
 // Import Models
 const Product = require("./models/Product");
@@ -13,9 +12,8 @@ const User = require("./models/User");
 const Order = require("./models/Order");
 
 const app = express();
-
-// 修正 1：將備用端口從 3000 改為 8080，確保 Cloud Run 啟動成功
-const PORT = process.env.PORT || 8080;
+// Cloud Run 會自動注入 PORT 環境變數，預設通常是 8080
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
@@ -29,26 +27,23 @@ if (MONGO_URI) {
   mongoose
     .connect(MONGO_URI)
     .then(() => console.log("🔗 資料庫連線成功"))
-    // 雖然這裡會 console.error，但最好確保應用程式不會因為連線失敗而終止
-    .catch((err) => console.error("⚠️ 資料庫連線失敗，請檢查 MONGO_URI 和 IP 白名單:", err)); 
+    .catch((err) => console.error("資料庫連線失敗:", err));
 } else {
-  console.warn("⚠️ 未設定 MONGO_URI 環境變數，資料庫功能將無法使用");
+  console.warn("⚠️ 未設定 MONGO_URI，資料庫功能將無法使用");
 }
 
 // ==========================================
-// ECPay Config (使用 APP_URL 環境變數作為回傳網址)
+// ECPay Config
 // ==========================================
-// 部署到 Cloud Run 後，必須將 APP_URL 設定為公開網址
-const APP_URL = process.env.APP_URL;
-const FALLBACK_URL = APP_URL || "http://localhost:8080"; // 本地測試時使用 8080
+const APP_URL = process.env.APP_URL || "http://localhost:5173"; 
 
 const ECPayConf = {
   MerchantID: process.env.ECPAY_MERCHANT_ID || "3002607",
   HashKey: process.env.ECPAY_HASH_KEY || "pwFHCqoQZGmho4w6",
   HashIV: process.env.ECPAY_HASH_IV || "EkRm7iFT261dpevs",
   Gateway: "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5",
-  ReturnURL: `${FALLBACK_URL}/api/payment/return`,
-  ClientBackURL: `${FALLBACK_URL}/#/orders`, // 修改為 hash router 路徑
+  ReturnURL: `${APP_URL}/api/payment/return`, 
+  ClientBackURL: `${APP_URL}/#/orders`, 
 };
 
 // --- 綠界加密輔助函式 ---
@@ -81,7 +76,6 @@ function generateCheckMacValue(params) {
 // 1. 取得所有產品
 app.get("/api/products", async (req, res) => {
   try {
-    if (!MONGO_URI) throw new Error("資料庫未連線");
     const products = await Product.find();
     res.json(products);
   } catch (error) {
@@ -92,7 +86,6 @@ app.get("/api/products", async (req, res) => {
 // 2. 登入
 app.post("/api/login", async (req, res) => {
   try {
-    if (!MONGO_URI) throw new Error("資料庫未連線");
     const { email, password } = req.body;
     const user = await User.findOne({ email, password });
 
@@ -118,7 +111,6 @@ app.post("/api/login", async (req, res) => {
 // 3. 註冊
 app.post("/api/register", async (req, res) => {
   try {
-    if (!MONGO_URI) throw new Error("資料庫未連線");
     const { email, name, password } = req.body;
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -154,7 +146,6 @@ app.post("/api/register", async (req, res) => {
 // 4. 更新個人檔案
 app.put("/api/users/profile", async (req, res) => {
   try {
-    if (!MONGO_URI) throw new Error("資料庫未連線");
     const { email, skinType, hairType } = req.body;
     const user = await User.findOne({ email });
 
@@ -198,7 +189,6 @@ app.put("/api/users/profile", async (req, res) => {
 // 5. 消耗折價券
 app.post("/api/users/coupon/use", async (req, res) => {
   try {
-    if (!MONGO_URI) throw new Error("資料庫未連線");
     const { email, code } = req.body;
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "找不到使用者" });
@@ -219,7 +209,6 @@ app.post("/api/users/coupon/use", async (req, res) => {
 // 6. 新增折價券
 app.post("/api/users/coupon/add", async (req, res) => {
   try {
-    if (!MONGO_URI) throw new Error("資料庫未連線");
     const { email, code, amount, description } = req.body;
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "找不到使用者" });
@@ -240,7 +229,6 @@ app.post("/api/users/coupon/add", async (req, res) => {
 // 7. 建立訂單
 app.post("/api/orders", async (req, res) => {
   try {
-    if (!MONGO_URI) throw new Error("資料庫未連線");
     const orderData = req.body;
     const merchantTradeNo = `ORD${Date.now()}`;
 
@@ -267,10 +255,9 @@ app.post("/api/orders", async (req, res) => {
   }
 });
 
-// 8. 查詢訂單 (修正排序邏輯)
+// 8. 查詢訂單
 app.get("/api/orders/:email", async (req, res) => {
   try {
-    if (!MONGO_URI) throw new Error("資料庫未連線");
     const { email } = req.params;
     const orders = await Order.find({ userEmail: email }).sort({
       date: -1, 
@@ -284,7 +271,6 @@ app.get("/api/orders/:email", async (req, res) => {
 // 9. 綠界 - 產生表單
 app.post("/api/payment/checkout", async (req, res) => {
   try {
-    if (!MONGO_URI) throw new Error("資料庫未連線");
     const { orderId } = req.body;
     const order = await Order.findOne({ orderId });
     if (!order) {
@@ -368,19 +354,20 @@ app.post("/api/payment/return", async (req, res) => {
 // ==========================================
 // 🚀 Production 靜態檔案設定
 // ==========================================
-// 使用 fs 檢查 dist 資料夾是否存在，以確定是否運行在生產模式
-const distPath = path.join(__dirname, '../dist');
-if (fs.existsSync(distPath)) {
-  // 1. 提供 React 靜態檔案
+if (process.env.NODE_ENV === 'production') {
+  // Dockerfile 將 dist 複製到了 /app/dist
+  // 而 server 執行在 /app/server
+  // 所以相對路徑是 ../dist
+  const distPath = path.join(__dirname, '../dist');
+  
   app.use(express.static(distPath));
 
-  // 修正 2：將 app.get('*', ...) 改為 app.get('/*', ...)，避免 path-to-regexp 錯誤
-  // 2. 所有非 API 的請求，都回傳 index.html (讓 React Router 接手)
-  app.get('/*', (req, res) => {
+  app.get('*', (req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`後端伺服器運作中: http://localhost:${PORT}`);
+// 監聽 0.0.0.0 以確保 Cloud Run 健康檢查通過
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`後端伺服器運作中: http://0.0.0.0:${PORT}`);
 });
