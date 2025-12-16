@@ -460,7 +460,7 @@ if (process.env.NODE_ENV === 'production') {
     console.log(`✅ 靜態檔案目錄存在: ${distPath}`);
     app.use(express.static(distPath));
 
-    app.get('*', (req, res) => {
+    app.get('/*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   } else {

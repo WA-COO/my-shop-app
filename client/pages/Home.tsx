@@ -91,7 +91,7 @@ const Home: React.FC = () => {
     { id: 'hair', label: '美髮護理' },
   ] as const;
 
-  const HERO_IMAGE_URL = "https://storage.googleapis.com/glow-and-shine-product-images/logo.png";
+  const HERO_IMAGE_URL = "https://storage.googleapis.com/glow-and-shine-product-images/background.png";
 
   return (
     <div className="py-8 animate-fade-in relative">
