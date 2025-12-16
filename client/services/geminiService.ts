@@ -3,19 +3,51 @@ import { API_BASE_URL } from "../constants";
 import { UserProfile, Product } from "../types";
 
 export class GeminiService {
-  private ai: GoogleGenAI;
+  private ai: GoogleGenAI | null = null;
   private chatSession: Chat | null = null;
 
   constructor() {
-    this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // 不要在 Constructor 直接初始化，因為生產環境 process.env 變數可能為空
+  }
+
+  // 初始化方法：確保取得 API Key
+  private async initAI() {
+    if (this.ai) return;
+
+    // 修改：同時支援 GEMINI_API_KEY 和 API_KEY
+    // 注意：這裡讀取的是前端 Build 時注入的變數 (Local 開發通常會有)
+    let apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+
+    // 如果前端環境變數沒有 Key (例如 Production 環境)，則嘗試從後端獲取
+    if (!apiKey) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/config/genai`);
+        if (response.ok) {
+          const data = await response.json();
+          apiKey = data.apiKey;
+        }
+      } catch (error) {
+        console.error("Failed to fetch API Key from server:", error);
+      }
+    }
+
+    if (!apiKey) {
+      throw new Error("Missing Gemini API Key. Please check server configuration (GEMINI_API_KEY).");
+    }
+
+    this.ai = new GoogleGenAI({ apiKey });
   }
 
   public async startChat(userProfile?: UserProfile) {
+    // 確保 AI 實例已初始化
+    await this.initAI();
+
+    if (!this.ai) throw new Error("AI Initialization Failed");
+
     let productContext = "";
 
     try {
       // 1. Fetch live products from Backend API
-      // This ensures the AI knows exactly what is currently in the MongoDB
       const response = await fetch(`${API_BASE_URL}/products`);
       if (response.ok) {
         const products: Product[] = await response.json();
@@ -73,6 +105,9 @@ export class GeminiService {
   }
 
   public async sendMessageStream(message: string): Promise<AsyncIterable<string>> {
+    // 確保 AI 實例已初始化
+    await this.initAI();
+
     if (!this.chatSession) {
       await this.startChat();
     }

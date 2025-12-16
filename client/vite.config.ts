@@ -20,7 +20,9 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       define: {
+        // 定義這兩個變數，確保前端代碼使用 process.env.GEMINI_API_KEY 不會報錯
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.API_KEY || ''),
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.API_KEY || ''),
       },
       resolve: {
         alias: {
