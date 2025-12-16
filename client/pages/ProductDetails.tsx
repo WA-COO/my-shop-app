@@ -21,7 +21,6 @@ const ProductDetails: React.FC = () => {
       try {
         setLoading(true);
         // Since backend currently only supports get all, we fetch all and find. 
-        // Ideally backend should have /api/products/:id
         const response = await fetch(`${API_BASE_URL}/products`);
         if (!response.ok) throw new Error('Failed to fetch products');
         
@@ -75,6 +74,11 @@ const ProductDetails: React.FC = () => {
     );
   }
 
+  // 使用資料庫中的 gallery，如果沒有則只顯示主圖
+  const thumbnails = product.gallery && product.gallery.length > 0 
+    ? [product.image, ...product.gallery] 
+    : [product.image];
+
   return (
     <div className="py-8 animate-fade-in pb-24">
       <div className="max-w-6xl mx-auto px-4">
@@ -97,18 +101,20 @@ const ProductDetails: React.FC = () => {
                 className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" 
               />
             </div>
-            {/* Thumbnail placeholders (Simulated) */}
-            <div className="grid grid-cols-4 gap-4">
-               {[product.image, `https://picsum.photos/400/400?random=${parseInt(product.id.slice(1)) + 10}`, `https://picsum.photos/400/400?random=${parseInt(product.id.slice(1)) + 20}`].map((img, idx) => (
-                 <button 
-                  key={idx}
-                  onClick={() => setMainImage(img)}
-                  className={`aspect-square rounded-xl overflow-hidden border-2 transition-all ${mainImage === img ? 'border-rose-500 ring-2 ring-rose-100' : 'border-transparent hover:border-stone-200'}`}
-                 >
-                   <img src={img} alt="" className="w-full h-full object-cover" />
-                 </button>
-               ))}
-            </div>
+            {/* Thumbnails */}
+            {thumbnails.length > 1 && (
+              <div className="grid grid-cols-4 gap-4">
+                 {thumbnails.map((img, idx) => (
+                   <button 
+                    key={idx}
+                    onClick={() => setMainImage(img)}
+                    className={`aspect-square rounded-xl overflow-hidden border-2 transition-all ${mainImage === img ? 'border-rose-500 ring-2 ring-rose-100' : 'border-transparent hover:border-stone-200'}`}
+                   >
+                     <img src={img} alt="" className="w-full h-full object-cover" />
+                   </button>
+                 ))}
+              </div>
+            )}
           </div>
 
           {/* Right: Info */}

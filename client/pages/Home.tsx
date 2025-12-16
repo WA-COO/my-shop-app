@@ -91,18 +91,21 @@ const Home: React.FC = () => {
     { id: 'hair', label: '美髮護理' },
   ] as const;
 
+  const HERO_IMAGE_URL = "https://storage.googleapis.com/glow-and-shine-product-images/logo.png";
+
   return (
     <div className="py-8 animate-fade-in relative">
       {/* Hero Section */}
       <div className="relative rounded-3xl overflow-hidden bg-rose-900 text-white mb-8 md:mb-12 shadow-2xl h-[300px] md:h-[400px]">
         <img 
-          src="https://picsum.photos/1200/600?grayscale&blur=2" 
+          src={HERO_IMAGE_URL}
           alt="Hero" 
-          className="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-overlay"
+          className="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-overlay" // 調整 opacity 可改變亮度
         />
+        {/* 深色漸層遮罩，確保文字清晰 */}
         <div className="absolute inset-0 flex flex-col justify-center items-center text-center p-6 bg-gradient-to-t from-rose-900/90 to-transparent">
-          <h1 className="text-4xl md:text-6xl font-bold mb-4 tracking-tight">煥發自信光采</h1>
-          <p className="text-lg md:text-xl text-rose-100 max-w-2xl font-light">
+          <h1 className="text-4xl md:text-6xl font-bold mb-4 tracking-tight shadow-sm">煥發自信光采</h1>
+          <p className="text-lg md:text-xl text-rose-100 max-w-2xl font-light shadow-sm">
             探索我們精選的頂級保養與彩妝系列，為您的肌膚注入自然活力。
           </p>
         </div>

@@ -5,6 +5,7 @@ export interface Product {
   price: number;
   description: string;
   image: string;
+  gallery?: string[]; // 新增：額外的商品圖片
   features: string[];
 }
 
