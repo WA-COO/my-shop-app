@@ -1,98 +1,58 @@
-import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
 import { API_BASE_URL } from "../constants";
-import { UserProfile, Product } from "../types";
+import { UserProfile } from "../types";
 
 export class GeminiService {
-  private ai: GoogleGenAI;
-  private chatSession: Chat | null = null;
+  private userProfile: UserProfile | null = null;
+  // 我們可以暫存最後一次對話的歷史，若需要更複雜的記憶功能，需要調整後端
+  // 這裡為了保持與原 UI 相容，我們主要負責轉發訊息
 
-  constructor() {
-    this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  }
+  constructor() {}
 
   public async startChat(userProfile?: UserProfile) {
-    let productContext = "";
-
-    try {
-      // 1. Fetch live products from Backend API
-      // This ensures the AI knows exactly what is currently in the MongoDB
-      const response = await fetch(`${API_BASE_URL}/products`);
-      if (response.ok) {
-        const products: Product[] = await response.json();
-        
-        if (products.length > 0) {
-          productContext = products.map(p => 
-            `- 商品名稱: ${p.name} (ID: ${p.id})\n  價格: $${p.price}\n  類別: ${p.category}\n  描述: ${p.description}\n  特色: ${p.features?.join(', ')}`
-          ).join('\n\n');
-        } else {
-          productContext = "Currently, the store inventory is empty.";
-        }
-      } else {
-        console.warn("AI failed to fetch live products via API.");
-        productContext = "System Error: Unable to retrieve product list.";
-      }
-    } catch (error) {
-      console.error("GeminiService Fetch Error:", error);
-      productContext = "System Error: Unable to connect to product database.";
+    // 這裡不再初始化 AI 客戶端，僅儲存使用者偏好供後續請求使用
+    if (userProfile) {
+      this.userProfile = userProfile;
     }
-
-    // 2. Build personalized instruction based on user profile
-    let personalContext = "";
-    if (userProfile && (userProfile.skinType || userProfile.hairType)) {
-       const skin = userProfile.skinType ? `User Skin Type: ${userProfile.skinType}` : "Unknown";
-       const hair = userProfile.hairType ? `User Hair Type: ${userProfile.hairType}` : "Unknown";
-       personalContext = `\nUSER PROFILE:\n- Skin: ${skin}\n- Hair: ${hair}\n\nINSTRUCTION: Prioritize products that match the user's skin and hair type.`;
-    }
-
-    const systemInstruction = `
-      You are "GlowBot", the professional AI beauty consultant for "Glow & Shine" store.
-      
-      === CURRENT INVENTORY (LIVE DATABASE) ===
-      ${productContext}
-      =========================================
-
-      ${personalContext}
-
-      === RESPONSE RULES ===
-      1. **Tone**: Warm, professional, encouraging (use emojis like 🌸, ✨).
-      2. **Length**: Keep responses concise (under 4 sentences) unless explaining a detailed routine.
-      3. **Language**: Traditional Chinese (繁體中文).
-      4. **Product Recommendations**: 
-         - Only recommend products listed in the CURRENT INVENTORY above.
-         - When you mention a specific product, you MUST append its ID in this hidden tag format: <<<ID>>>.
-         - Example: "我非常推薦您試試 **極致保濕精華** <<<p1>>>，它能深層補水。"
-      5. If the inventory is empty or the user asks about products not sold here, politely inform them we don't carry that item.
-    `;
-
-    this.chatSession = this.ai.chats.create({
-      model: 'gemini-2.5-flash',
-      config: {
-        systemInstruction: systemInstruction,
-      },
-    });
   }
 
   public async sendMessageStream(message: string): Promise<AsyncIterable<string>> {
-    if (!this.chatSession) {
-      await this.startChat();
+    const payload = {
+      message,
+      userProfile: this.userProfile,
+      // history: [] // 如果需要上下文記憶，可以從 ChatBot 元件傳入歷史紀錄
+    };
+
+    const response = await fetch(`${API_BASE_URL}/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok || !response.body) {
+      throw new Error("Failed to connect to AI server");
     }
 
-    if (!this.chatSession) {
-        throw new Error("Failed to initialize chat session");
-    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
 
-    const result = await this.chatSession.sendMessageStream({ message });
-    
-    // Generator to yield text chunks
-    async function* textGenerator(stream: AsyncIterable<GenerateContentResponse>) {
-      for await (const chunk of stream) {
-        if (chunk.text) {
-          yield chunk.text;
+    // 建立一個 Generator 來產生串流文字
+    async function* streamGenerator() {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          // decode the chunk and yield it
+          const chunkText = decoder.decode(value, { stream: true });
+          yield chunkText;
         }
+      } finally {
+        reader.releaseLock();
       }
     }
 
-    return textGenerator(result);
+    return streamGenerator();
   }
 }
 

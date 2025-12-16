@@ -1,10 +1,12 @@
-// server/index.js (修正版)
+// server/index.js
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const crypto = require("crypto");
 const path = require("path");
+const fs = require("fs");
+const { GoogleGenAI } = require("@google/genai"); // Import Gemini SDK
 
 // Import Models
 const Product = require("./models/Product");
@@ -12,16 +14,30 @@ const User = require("./models/User");
 const Order = require("./models/Order");
 
 const app = express();
-// Cloud Run 會自動注入 PORT 環境變數，預設通常是 8080
-const PORT = process.env.PORT || 8080; // 修正: 確保本地預設值也是 8080
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Initialize Gemini Client (Backend Side)
+// 優先讀取 GEMINI_API_KEY，相容 API_KEY
+const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+let ai = null;
+if (apiKey) {
+  ai = new GoogleGenAI({ apiKey });
+} else {
+  console.error("❌ Server missing GEMINI_API_KEY. AI features will not work.");
+}
+
+// 健康檢查路由
+app.get("/health", (req, res) => {
+  res.status(200).send("OK");
+});
+
 // MongoDB Connection
-const MONGO_URI = process.env.MONGO_URI;
+const MONGO_URI = process.env.MONGO_URI; 
 
 if (MONGO_URI) {
   mongoose
@@ -35,18 +51,17 @@ if (MONGO_URI) {
 // ==========================================
 // ECPay Config
 // ==========================================
-const APP_URL = process.env.APP_URL || "http://localhost:5173";
+const APP_URL = process.env.APP_URL || "http://localhost:5173"; 
 
 const ECPayConf = {
   MerchantID: process.env.ECPAY_MERCHANT_ID || "3002607",
   HashKey: process.env.ECPAY_HASH_KEY || "pwFHCqoQZGmho4w6",
   HashIV: process.env.ECPAY_HASH_IV || "EkRm7iFT261dpevs",
   Gateway: "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5",
-  ReturnURL: `${APP_URL}/api/payment/return`,
-  ClientBackURL: `${APP_URL}/#/orders`,
+  ReturnURL: `${APP_URL}/api/payment/return`, 
+  ClientBackURL: `${APP_URL}/#/orders`, 
 };
 
-// --- 綠界加密輔助函式 ---
 function generateCheckMacValue(params) {
   const keys = Object.keys(params).sort();
   let rawStr = `HashKey=${ECPayConf.HashKey}`;
@@ -260,7 +275,7 @@ app.get("/api/orders/:email", async (req, res) => {
   try {
     const { email } = req.params;
     const orders = await Order.find({ userEmail: email }).sort({
-      date: -1,
+      date: -1, 
     });
     res.json(orders);
   } catch (error) {
@@ -351,25 +366,108 @@ app.post("/api/payment/return", async (req, res) => {
   }
 });
 
-// ==========================================
-// 🚀 Production 靜態檔案設定 (已修正)
-// ==========================================
-if (process.env.NODE_ENV === "production") {
-  // Dockerfile 將 dist 複製到了 /app/dist
-  // 而 server 執行在 /app/server
-  // 所以相對路徑是 ../dist
-  const distPath = path.join(__dirname, "../dist");
+// 11. 【新功能】Gemini Chat API (Backend Stream)
+app.post("/api/chat", async (req, res) => {
+  if (!ai) {
+    return res.status(503).json({ message: "AI Service Not Configured" });
+  }
 
-  // 1. 服務靜態檔案
-  app.use(express.static(distPath));
+  const { message, userProfile, history } = req.body;
 
-  // 2. 修正：使用 app.use 捕捉所有未匹配路由 (解決 PathError)
-  app.use((req, res) => {
-    res.sendFile(path.join(distPath, "index.html"));
-  });
+  try {
+    // A. 讀取最新產品庫存
+    const products = await Product.find();
+    let productContext = "";
+    if (products.length > 0) {
+      productContext = products.map(p => 
+        `- 商品名稱: ${p.name} (ID: ${p.id})\n  價格: $${p.price}\n  類別: ${p.category}\n  描述: ${p.description}\n  特色: ${p.features?.join(', ')}`
+      ).join('\n\n');
+    } else {
+      productContext = "Currently, the store inventory is empty.";
+    }
+
+    // B. 建構 Prompt
+    let personalContext = "";
+    if (userProfile && (userProfile.skinType || userProfile.hairType)) {
+       const skin = userProfile.skinType ? `User Skin Type: ${userProfile.skinType}` : "Unknown";
+       const hair = userProfile.hairType ? `User Hair Type: ${userProfile.hairType}` : "Unknown";
+       personalContext = `\nUSER PROFILE:\n- Skin: ${skin}\n- Hair: ${hair}\n\nINSTRUCTION: Prioritize products that match the user's skin and hair type.`;
+    }
+
+    const systemInstruction = `
+      You are "GlowBot", the professional AI beauty consultant for "Glow & Shine" store.
+      
+      === CURRENT INVENTORY (LIVE DATABASE) ===
+      ${productContext}
+      =========================================
+
+      ${personalContext}
+
+      === RESPONSE RULES ===
+      1. **Tone**: Warm, professional, encouraging (use emojis like 🌸, ✨).
+      2. **Length**: Keep responses concise (under 4 sentences) unless explaining a detailed routine.
+      3. **Language**: Traditional Chinese (繁體中文).
+      4. **Product Recommendations**: 
+         - Only recommend products listed in the CURRENT INVENTORY above.
+         - When you mention a specific product, you MUST append its ID in this hidden tag format: <<<ID>>>.
+         - Example: "我非常推薦您試試 **極致保濕精華** <<<p1>>>，它能深層補水。"
+      5. If the inventory is empty or the user asks about products not sold here, politely inform them we don't carry that item.
+    `;
+
+    // C. 啟動 Chat Session
+    // 這裡我們每次建立新 Session，若要支援上下文，前端需傳入 history (Content[])
+    // 為了簡單起見，我們這裡假設是一次性回答，或依賴前端傳送完整的對話 (若前端有實作)
+    // 但因為本案例主要為「產品諮詢」，單輪對話 + System Prompt 通常足夠。
+    // 若要支援歷史紀錄，可使用 history 參數初始化 chats.create
+    const chat = ai.chats.create({
+      model: 'gemini-2.5-flash',
+      config: {
+        systemInstruction: systemInstruction,
+      },
+      history: history || []
+    });
+
+    // D. 發送訊息並處理串流回應
+    const result = await chat.sendMessageStream({ message });
+
+    // 設定 Headers 支援串流
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Transfer-Encoding', 'chunked');
+
+    for await (const chunk of result) {
+      if (chunk.text) {
+        res.write(chunk.text);
+      }
+    }
+    
+    res.end();
+
+  } catch (error) {
+    console.error("Gemini Chat Error:", error);
+    res.status(500).write("抱歉，我現在有點忙碌，請稍後再試。");
+    res.end();
+  }
+});
+
+
+// ==========================================
+// 🚀 Production 靜態檔案設定
+// ==========================================
+if (process.env.NODE_ENV === 'production') {
+  const distPath = path.join(__dirname, '../dist');
+  
+  if (fs.existsSync(distPath)) {
+    console.log(`✅ 靜態檔案目錄存在: ${distPath}`);
+    app.use(express.static(distPath));
+
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  } else {
+    console.error(`❌ 找不到靜態檔案目錄: ${distPath}。請確認 Docker Build 流程。`);
+  }
 }
 
-// 監聽 0.0.0.0 以確保 Cloud Run 健康檢查通過
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`後端伺服器運作中: http://0.0.0.0:${PORT}`);
 });
