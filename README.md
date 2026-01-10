@@ -57,10 +57,10 @@
 # Backend Configuration
 PORT=3000
 MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/beauty-store
-APP_URL=http://localhost:3000
+APP_URL=http://localhost:5173
 
-# AI Configuration
-API_KEY=your_google_gemini_api_key
+# AI Configuration (Gemini)
+GEMINI_API_KEY=your_google_gemini_api_key
 
 # ECPay Configuration (Testing)
 ECPAY_MERCHANT_ID=3002607
@@ -68,7 +68,7 @@ ECPAY_HASH_KEY=pwFHCqoQZGmho4w6
 ECPAY_HASH_IV=EkRm7iFT261dpevs
 ```
 
-*(前端 `client` 部分若在開發模式下需要讀取環境變數，請確保 Vite 設定正確)*
+*(注意：前端 `client` 預設會透過 Proxy 連線至後端，因此本地開發時 **不需要** 額外設定前端環境變數)*
 
 ### 2. 啟動後端 (Backend)
 
@@ -78,11 +78,13 @@ ECPAY_HASH_IV=EkRm7iFT261dpevs
 cd server
 npm install
 
-# 初始化資料庫 (匯入商品資料)
+# 初始化資料庫 (匯入預設商品資料)
 node seed.js
 
-# 啟動伺服器 (預設 Port 3000)
+# 啟動伺服器 (Port 3000)
 node index.js
+# 或使用 nodemon 進行開發 (若有安裝)
+# npx nodemon index.js
 ```
 
 ### 3. 啟動前端 (Frontend)
@@ -108,5 +110,5 @@ npm run dev
 docker build -t beauty-store .
 
 # 執行 Container
-docker run -p 8080:8080 -e MONGO_URI=... -e API_KEY=... beauty-store
+docker run -p 8080:8080 -e MONGO_URI=... -e GEMINI_API_KEY=... beauty-store
 ```

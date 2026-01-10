@@ -32,13 +32,20 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Effect: Fetch orders when user logs in
   useEffect(() => {
     const fetchUserOrders = async () => {
-      if (!user?.email) {
+      // Must be logged in
+      if (!user) {
         setOrders([]);
         return;
       }
 
       try {
-        const response = await fetch(`${API_BASE_URL}/orders/${user.email}`);
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE_URL}/orders`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
         if (response.ok) {
           const data = await response.json();
           // IMPORTANT: Map backend 'orderId' to frontend 'id' to ensure keys are unique and visible
@@ -60,7 +67,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setItems(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        return prev.map(item => 
+        return prev.map(item =>
           item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
@@ -75,7 +82,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateQuantity = (productId: string, quantity: number) => {
     if (quantity < 1) return;
-    setItems(prev => prev.map(item => 
+    setItems(prev => prev.map(item =>
       item.id === productId ? { ...item, quantity } : item
     ));
   };
@@ -91,7 +98,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Logic: Subtotal calculations
   const cartSubtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  
+
   // Logic: Discount
   const discountAmount = selectedCoupon ? selectedCoupon.amount : 0;
 
@@ -100,15 +107,15 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Logic: Free shipping if (subtotal - discount) >= 1000, otherwise 100
   const shippingFee = (items.length > 0 && discountedSubtotal < 1000) ? 100 : 0;
-  
+
   const finalTotal = discountedSubtotal + shippingFee;
 
   // Backend Integration: placeOrder
   const placeOrder = async (shippingDetails: ShippingDetails): Promise<string> => {
     try {
       const orderPayload = {
-        userId: user?.id || 'guest',
-        userEmail: user?.email || 'guest',
+        // userId: user?.id || 'guest', // Handled by server token
+        // userEmail: user?.email || 'guest', // Handled by server token
         items: items,
         subtotal: cartSubtotal,
         discount: discountAmount,
@@ -117,10 +124,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         shippingDetails: shippingDetails
       };
 
+      const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(orderPayload),
       });
@@ -132,17 +141,17 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       const newOrder: Order = {
-         id: data.orderId || `ORD-${Date.now()}`,
-         date: new Date().toISOString(),
-         items: [...items],
-         subtotal: cartSubtotal,
-         discount: discountAmount,
-         shippingFee: shippingFee,
-         total: finalTotal,
-         status: 'pending',
-         shippingDetails: shippingDetails
+        id: data.orderId || `ORD-${Date.now()}`,
+        date: new Date().toISOString(),
+        items: [...items],
+        subtotal: cartSubtotal,
+        discount: discountAmount,
+        shippingFee: shippingFee,
+        total: finalTotal,
+        status: 'pending',
+        shippingDetails: shippingDetails
       };
-      
+
       setOrders(prev => [newOrder, ...prev]);
       clearCart();
       addToast('訂單已送出！', 'success');
@@ -155,12 +164,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <CartContext.Provider value={{ 
-      items, 
-      addToCart, 
-      removeFromCart, 
-      updateQuantity, 
-      clearCart, 
+    <CartContext.Provider value={{
+      items,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      clearCart,
       cartSubtotal,
       selectedCoupon,
       applyCoupon,

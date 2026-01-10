@@ -27,12 +27,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   });
 
   // Helper to update state and localStorage
-  const saveUser = (userData: User | null) => {
+  const saveUser = (userData: User | null, token: string | null = null) => {
     setUser(userData);
-    if (userData) {
+    if (userData && token) {
       localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('token', token);
     } else {
       localStorage.removeItem('user');
+      localStorage.removeItem('token');
     }
   };
 
@@ -54,7 +56,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       // 2. 登入成功，儲存到 LocalStorage
-      saveUser(data.user);
+      saveUser(data.user, data.token);
     } catch (error) {
       console.error("Login Error:", error);
       throw error;
@@ -79,7 +81,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       // 3. 註冊成功自動登入，儲存到 LocalStorage
-      saveUser(data.user);
+      saveUser(data.user, data.token);
     } catch (error) {
       console.error("Register Error:", error);
       throw error;
@@ -91,14 +93,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!user) return '請先登入';
 
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/users/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          email: user.email, 
-          skinType: profile.skinType,
+          skinType: profile.skinType, // Remove email from body, use token
           hairType: profile.hairType
         }),
       });
@@ -110,8 +113,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       // 4. 更新資料時同步更新 LocalStorage
-      saveUser(data.user);
-      
+      // Note: We don't get a new token here, but we keep the old one
+      saveUser(data.user, token);
+
       return data.message;
     } catch (error: any) {
       console.error("Update Profile Error:", error);
@@ -122,16 +126,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Backend Integration: Use Coupon
   const useCoupon = async (code: string) => {
     if (!user) return;
-    
+
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/users/coupon/use`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          email: user.email,
-          code: code
+          code: code // Remove email from body, use token
         }),
       });
 
@@ -143,7 +148,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // 5. 更新資料時同步更新 LocalStorage (因為折價券被用掉了)
       const updatedUser = { ...user, coupons: data.coupons };
-      saveUser(updatedUser);
+      saveUser(updatedUser, token);
 
     } catch (error) {
       console.error("Use Coupon Error:", error);

@@ -7,6 +7,10 @@ const crypto = require("crypto");
 const path = require("path");
 const fs = require("fs");
 const { GoogleGenAI } = require("@google/genai"); // Import Gemini SDK
+const jwt = require("jsonwebtoken");
+const verifyToken = require("./middleware/auth");
+
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_key_12345";
 
 // Import Models
 const Product = require("./models/Product");
@@ -37,7 +41,7 @@ app.get("/health", (req, res) => {
 });
 
 // MongoDB Connection
-const MONGO_URI = process.env.MONGO_URI; 
+const MONGO_URI = process.env.MONGO_URI;
 
 if (MONGO_URI) {
   mongoose
@@ -51,15 +55,15 @@ if (MONGO_URI) {
 // ==========================================
 // ECPay Config
 // ==========================================
-const APP_URL = process.env.APP_URL || "http://localhost:5173"; 
+const APP_URL = process.env.APP_URL || "http://localhost:5173";
 
 const ECPayConf = {
   MerchantID: process.env.ECPAY_MERCHANT_ID || "3002607",
   HashKey: process.env.ECPAY_HASH_KEY || "pwFHCqoQZGmho4w6",
   HashIV: process.env.ECPAY_HASH_IV || "EkRm7iFT261dpevs",
   Gateway: "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5",
-  ReturnURL: `${APP_URL}/api/payment/return`, 
-  ClientBackURL: `${APP_URL}/#/orders`, 
+  ReturnURL: `${APP_URL}/api/payment/return`,
+  ClientBackURL: `${APP_URL}/#/orders`,
 };
 
 function generateCheckMacValue(params) {
@@ -108,8 +112,16 @@ app.post("/api/login", async (req, res) => {
       return res.status(401).json({ message: "帳號或密碼錯誤" });
     }
 
+    // Generate JWT Token
+    const token = jwt.sign(
+      { userId: user.userId, email: user.email, name: user.name },
+      JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+
     res.json({
       message: "登入成功",
+      token,
       user: {
         id: user.userId,
         name: user.name,
@@ -144,8 +156,16 @@ app.post("/api/register", async (req, res) => {
       coupons: [],
     });
 
+    // Generate JWT Token
+    const token = jwt.sign(
+      { userId: newUser.userId, email: newUser.email, name: newUser.name },
+      JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+
     res.status(201).json({
       message: "註冊成功",
+      token,
       user: {
         id: newUser.userId,
         name: newUser.name,
@@ -159,9 +179,10 @@ app.post("/api/register", async (req, res) => {
 });
 
 // 4. 更新個人檔案
-app.put("/api/users/profile", async (req, res) => {
+app.put("/api/users/profile", verifyToken, async (req, res) => {
   try {
-    const { email, skinType, hairType } = req.body;
+    const { skinType, hairType } = req.body;
+    const email = req.user.email; // From Token
     const user = await User.findOne({ email });
 
     if (!user) return res.status(404).json({ message: "找不到使用者" });
@@ -202,9 +223,10 @@ app.put("/api/users/profile", async (req, res) => {
 });
 
 // 5. 消耗折價券
-app.post("/api/users/coupon/use", async (req, res) => {
+app.post("/api/users/coupon/use", verifyToken, async (req, res) => {
   try {
-    const { email, code } = req.body;
+    const { code } = req.body;
+    const email = req.user.email; // From Token
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "找不到使用者" });
 
@@ -221,10 +243,11 @@ app.post("/api/users/coupon/use", async (req, res) => {
   }
 });
 
-// 6. 新增折價券
-app.post("/api/users/coupon/add", async (req, res) => {
+// 6. 新增折價券 (這裡假設是後台或系統功能，目前也先保護起來，或者是給使用者領取用)
+app.post("/api/users/coupon/add", verifyToken, async (req, res) => {
   try {
-    const { email, code, amount, description } = req.body;
+    const { code, amount, description } = req.body;
+    const email = req.user.email; // From Token
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "找不到使用者" });
 
@@ -241,16 +264,20 @@ app.post("/api/users/coupon/add", async (req, res) => {
   }
 });
 
-// 7. 建立訂單
-app.post("/api/orders", async (req, res) => {
+// 7. 建立訂單 (保護)
+app.post("/api/orders", verifyToken, async (req, res) => {
   try {
     const orderData = req.body;
     const merchantTradeNo = `ORD${Date.now()}`;
 
+    // Ensure the order is created for the logged-in user
+    const userId = req.user.userId;
+    const userEmail = req.user.email;
+
     const newOrder = await Order.create({
       orderId: merchantTradeNo,
-      userId: orderData.userId || "guest",
-      userEmail: orderData.userEmail || "guest",
+      userId: userId,
+      userEmail: userEmail,
       items: orderData.items,
       subtotal: orderData.subtotal || 0,
       discount: orderData.discount || 0,
@@ -270,12 +297,12 @@ app.post("/api/orders", async (req, res) => {
   }
 });
 
-// 8. 查詢訂單
-app.get("/api/orders/:email", async (req, res) => {
+// 8. 查詢訂單 (保護)
+app.get("/api/orders", verifyToken, async (req, res) => {
   try {
-    const { email } = req.params;
+    const email = req.user.email; // From Token
     const orders = await Order.find({ userEmail: email }).sort({
-      date: -1, 
+      date: -1,
     });
     res.json(orders);
   } catch (error) {
@@ -326,11 +353,11 @@ app.post("/api/payment/checkout", async (req, res) => {
     const html = `
       <form id="ecpay-form" action="${ECPayConf.Gateway}" method="POST">
         ${Object.keys(finalParams)
-          .map(
-            (key) =>
-              `<input type="hidden" name="${key}" value="${finalParams[key]}" />`
-          )
-          .join("")}
+        .map(
+          (key) =>
+            `<input type="hidden" name="${key}" value="${finalParams[key]}" />`
+        )
+        .join("")}
       </form>
       <script>document.getElementById("ecpay-form").submit();</script>
     `;
@@ -379,7 +406,7 @@ app.post("/api/chat", async (req, res) => {
     const products = await Product.find();
     let productContext = "";
     if (products.length > 0) {
-      productContext = products.map(p => 
+      productContext = products.map(p =>
         `- 商品名稱: ${p.name} (ID: ${p.id})\n  價格: $${p.price}\n  類別: ${p.category}\n  描述: ${p.description}\n  特色: ${p.features?.join(', ')}`
       ).join('\n\n');
     } else {
@@ -389,9 +416,9 @@ app.post("/api/chat", async (req, res) => {
     // B. 建構 Prompt
     let personalContext = "";
     if (userProfile && (userProfile.skinType || userProfile.hairType)) {
-       const skin = userProfile.skinType ? `User Skin Type: ${userProfile.skinType}` : "Unknown";
-       const hair = userProfile.hairType ? `User Hair Type: ${userProfile.hairType}` : "Unknown";
-       personalContext = `\nUSER PROFILE:\n- Skin: ${skin}\n- Hair: ${hair}\n\nINSTRUCTION: Prioritize products that match the user's skin and hair type.`;
+      const skin = userProfile.skinType ? `User Skin Type: ${userProfile.skinType}` : "Unknown";
+      const hair = userProfile.hairType ? `User Hair Type: ${userProfile.hairType}` : "Unknown";
+      personalContext = `\nUSER PROFILE:\n- Skin: ${skin}\n- Hair: ${hair}\n\nINSTRUCTION: Prioritize products that match the user's skin and hair type.`;
     }
 
     const systemInstruction = `
@@ -439,7 +466,7 @@ app.post("/api/chat", async (req, res) => {
         res.write(chunk.text);
       }
     }
-    
+
     res.end();
 
   } catch (error) {
@@ -455,7 +482,7 @@ app.post("/api/chat", async (req, res) => {
 // ==========================================
 if (process.env.NODE_ENV === 'production') {
   const distPath = path.join(__dirname, '../dist');
-  
+
   if (fs.existsSync(distPath)) {
     console.log(`✅ 靜態檔案目錄存在: ${distPath}`);
     app.use(express.static(distPath));
