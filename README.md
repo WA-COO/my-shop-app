@@ -21,7 +21,9 @@
 - **Database**: MongoDB (Mongoose).
 - **AI**: Google Gemini SDK (`@google/genai`).
 - **Payment**: ECPay (綠界金流).
+- **Image Hosting**: Google Cloud Storage (GCS Buckets).
 - **Deployment**: Docker, Google Cloud Run (GCP).
+- **Testing**: Vitest, Playwright, Supertest.
 
 ## 📂 專案結構 (Project Structure)
 
@@ -36,12 +38,18 @@
 │   ├── contexts/        # Global State (Auth, Cart...)
 │   ├── pages/           # 頁面路由
 │   ├── services/        # API 服務 (Gemini AI)
+│   ├── types.ts         # TypeScript 類型定義
+│   ├── constants.ts     # 全域變數與常數
+│   ├── tests/           # 單元與整合測試 (Vitest)
+│   ├── e2e/            # 端對端測試 (Playwright)
 │   ├── index.html       # 入口 HTML
 │   ├── index.tsx        # 入口 TypeScript
 │   ├── vite.config.ts   # Vite 設定
 │   └── ...
 └── server/              # 後端 API 伺服器 (Express)
+    ├── middleware/      # 權限驗證與邏輯過濾
     ├── models/          # MongoDB Schema
+    ├── tests/           # API 整合測試 (Vitest)
     ├── index.js         # 伺服器入口點
     └── seed.js          # 資料庫初始化腳本
 ```
