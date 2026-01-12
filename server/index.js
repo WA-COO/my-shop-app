@@ -495,6 +495,10 @@ if (process.env.NODE_ENV === 'production') {
   }
 }
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`後端伺服器運作中: http://0.0.0.0:${PORT}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`後端伺服器運作中: http://0.0.0.0:${PORT}`);
+  });
+}
+
+module.exports = app;

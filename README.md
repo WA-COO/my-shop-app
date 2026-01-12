@@ -112,3 +112,33 @@ docker build -t beauty-store .
 # 執行 Container
 docker run -p 8080:8080 -e MONGO_URI=... -e GEMINI_API_KEY=... beauty-store
 ```
+
+## 🧪 自動化測試 (Testing)
+
+建立了三層式自動化測試架構，確保系統穩定性。
+
+### 1. 單元測試 (Unit Tests)
+測試前端元件與邏輯。
+
+```bash
+cd client
+npm test
+```
+
+### 2. 後端測試 (Backend Tests)
+測試 API 接口與資料庫邏輯。
+
+```bash
+cd server
+npm test
+```
+
+### 3. 端對端測試 (E2E Tests)
+模擬真實使用者操作 (需先啟動後端伺服器)。
+
+```bash
+cd client
+npx playwright test
+# 或使用 UI 模式除錯
+npx playwright test --ui
+```

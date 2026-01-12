@@ -12,7 +12,7 @@ const Checkout: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   // Remove step 3 (success) because we will redirect to ECPay
-  const [step, setStep] = useState(1); 
+  const [step, setStep] = useState(1);
 
   // Form State
   const [formData, setFormData] = useState<ShippingDetails>({
@@ -37,7 +37,7 @@ const Checkout: React.FC = () => {
     try {
       // 1. 建立資料庫訂單 (MongoDB)
       const orderId = await placeOrder(formData);
-      
+
       // 2. 消耗折價券
       if (selectedCoupon) {
         await useCoupon(selectedCoupon.code);
@@ -69,8 +69,8 @@ const Checkout: React.FC = () => {
         // 重新 eval script 部分
         const scriptContent = html.match(/<script>(.*?)<\/script>/)?.[1];
         if (scriptContent) {
-           // eslint-disable-next-line no-eval
-           eval(scriptContent); 
+          // eslint-disable-next-line no-eval
+          eval(scriptContent);
         }
       }
 
@@ -115,52 +115,55 @@ const Checkout: React.FC = () => {
 
       {/* Main Layout Container */}
       <div className="flex flex-col md:flex-row gap-8">
-        
+
         {/* Left Column (Desktop) / Top Section (Mobile): Form */}
         <div className="flex-1 bg-white p-6 rounded-2xl shadow-sm border border-stone-100 order-1">
           <div className="flex items-center space-x-2 mb-6 pb-4 border-b border-stone-100">
             <MapPin className="text-rose-500" />
             <h2 className="text-lg font-bold text-stone-800">收件資訊</h2>
           </div>
-          
+
           <form id="checkout-form" onSubmit={handlePayment} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1">姓氏</label>
-                <input 
-                  type="text" 
+                <label htmlFor="lastName" className="block text-sm font-medium text-stone-700 mb-1">姓氏</label>
+                <input
+                  id="lastName"
+                  type="text"
                   name="lastName"
-                  required 
+                  required
                   value={formData.lastName}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-rose-500 outline-none" 
-                  placeholder="王" 
+                  className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-rose-500 outline-none"
+                  placeholder="王"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1">名字</label>
-                <input 
-                  type="text" 
+                <label htmlFor="firstName" className="block text-sm font-medium text-stone-700 mb-1">名字</label>
+                <input
+                  id="firstName"
+                  type="text"
                   name="firstName"
-                  required 
+                  required
                   value={formData.firstName}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-rose-500 outline-none" 
-                  placeholder="小美" 
+                  className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-rose-500 outline-none"
+                  placeholder="小美"
                 />
               </div>
             </div>
-            
+
             <div>
-              <label className="block text-sm font-medium text-stone-700 mb-1">電話號碼</label>
-              <input 
-                type="tel" 
+              <label htmlFor="phone" className="block text-sm font-medium text-stone-700 mb-1">電話號碼</label>
+              <input
+                id="phone"
+                type="tel"
                 name="phone"
-                required 
+                required
                 value={formData.phone}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-rose-500 outline-none" 
-                placeholder="0912-345-678" 
+                className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-rose-500 outline-none"
+                placeholder="0912-345-678"
               />
             </div>
 
@@ -178,21 +181,22 @@ const Checkout: React.FC = () => {
                   ))}
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-stone-500">
-                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
                 </div>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-stone-700 mb-1">詳細地址</label>
-              <input 
-                type="text" 
+              <label htmlFor="address" className="block text-sm font-medium text-stone-700 mb-1">詳細地址</label>
+              <input
+                id="address"
+                type="text"
                 name="address"
-                required 
+                required
                 value={formData.address}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-rose-500 outline-none" 
-                placeholder="信義路五段7號89樓" 
+                className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-rose-500 outline-none"
+                placeholder="信義路五段7號89樓"
               />
             </div>
 
@@ -201,20 +205,20 @@ const Checkout: React.FC = () => {
                 <CreditCard className="text-rose-500" />
                 <h2 className="text-lg font-bold text-stone-800">付款方式</h2>
               </div>
-              
+
               <div className="space-y-3">
-                 <label className="flex items-center p-3 border rounded-xl cursor-pointer hover:bg-stone-50 transition-colors has-[:checked]:border-rose-500 has-[:checked]:bg-rose-50">
-                    <input 
-                      type="radio" 
-                      name="paymentMethod" 
-                      value="credit_card"
-                      checked={formData.paymentMethod === 'credit_card'}
-                      onChange={handleInputChange}
-                      className="w-4 h-4 text-rose-600 focus:ring-rose-500" 
-                    />
-                    <span className="ml-3 font-medium text-stone-700">綠界支付 (信用卡/ATM)</span>
-                 </label>
-                 {/* 暫時隱藏 LINE Pay，統一走綠界 */}
+                <label className="flex items-center p-3 border rounded-xl cursor-pointer hover:bg-stone-50 transition-colors has-[:checked]:border-rose-500 has-[:checked]:bg-rose-50">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="credit_card"
+                    checked={formData.paymentMethod === 'credit_card'}
+                    onChange={handleInputChange}
+                    className="w-4 h-4 text-rose-600 focus:ring-rose-500"
+                  />
+                  <span className="ml-3 font-medium text-stone-700">綠界支付 (信用卡/ATM)</span>
+                </label>
+                {/* 暫時隱藏 LINE Pay，統一走綠界 */}
               </div>
             </div>
           </form>
@@ -238,7 +242,7 @@ const Checkout: React.FC = () => {
                 </div>
               ))}
             </div>
-            
+
             <div className="border-t border-stone-200 mt-4 pt-4 space-y-2">
               <div className="flex justify-between text-stone-600">
                 <span>商品小計</span>
@@ -248,9 +252,9 @@ const Checkout: React.FC = () => {
               {/* Coupon Selector */}
               <div className="py-2">
                 <label className="block text-xs font-bold text-stone-500 mb-1 flex items-center">
-                   <Ticket size={12} className="mr-1" /> 使用折價券
+                  <Ticket size={12} className="mr-1" /> 使用折價券
                 </label>
-                <select 
+                <select
                   className="w-full text-sm p-2 rounded-lg border border-stone-300 bg-white"
                   onChange={handleCouponChange}
                   value={selectedCoupon?.code || ''}
@@ -265,10 +269,10 @@ const Checkout: React.FC = () => {
               </div>
 
               {selectedCoupon && (
-                 <div className="flex justify-between text-rose-600 font-medium">
-                   <span>折扣金額</span>
-                   <span>- NT$ {discountAmount}</span>
-                 </div>
+                <div className="flex justify-between text-rose-600 font-medium">
+                  <span>折扣金額</span>
+                  <span>- NT$ {discountAmount}</span>
+                </div>
               )}
 
               <div className="flex justify-between text-stone-600">
@@ -276,10 +280,10 @@ const Checkout: React.FC = () => {
                 {shippingFee === 0 ? (
                   <span className="text-rose-600 font-medium">免運費</span>
                 ) : (
-                   <span>NT$ {shippingFee}</span>
+                  <span>NT$ {shippingFee}</span>
                 )}
               </div>
-              
+
               {shippingFee > 0 && (
                 <div className="text-xs text-stone-400 text-right">
                   (折扣後滿 $1000 免運)
@@ -293,7 +297,7 @@ const Checkout: React.FC = () => {
             </div>
           </div>
 
-          <button 
+          <button
             form="checkout-form"
             type="submit"
             disabled={loading}

@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest"
   },
   "author": "",
   "license": "ISC",
@@ -17,5 +17,9 @@
     "mongodb": "^7.0.0",
     "mongoose": "^9.0.1",
     "nodemon": "^3.1.11"
+  },
+  "devDependencies": {
+    "supertest": "^7.2.2",
+    "vitest": "^4.0.16"
   }
 }

@@ -31,9 +31,9 @@ const Navbar: React.FC = () => {
 
           {/* Actions Section */}
           <div className="flex items-center gap-4 sm:gap-6">
-            
+
             {/* Cart Icon */}
-            <Link to="/cart" className="relative text-stone-600 hover:text-rose-600 transition-colors group p-2">
+            <Link to="/cart" aria-label="購物車" className="relative text-stone-600 hover:text-rose-600 transition-colors group p-2">
               <ShoppingBag size={24} />
               {itemCount > 0 && (
                 <span className="absolute top-0 right-0 bg-rose-500 text-white text-[10px] sm:text-xs font-bold rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center border-2 border-white group-hover:scale-110 transition-transform">
@@ -46,7 +46,7 @@ const Navbar: React.FC = () => {
             {user ? (
               <div className="relative group z-50">
                 {/* Dropdown Trigger */}
-                <button className="flex items-center space-x-2 text-stone-600 hover:text-rose-600 transition-colors py-2 focus:outline-none">
+                <button aria-label="User menu" className="flex items-center space-x-2 text-stone-600 hover:text-rose-600 transition-colors py-2 focus:outline-none">
                   <div className="bg-rose-100 p-1.5 rounded-full text-rose-600">
                     <User size={20} />
                   </div>
@@ -64,23 +64,23 @@ const Navbar: React.FC = () => {
 
                     {/* Menu Items */}
                     <div className="py-1">
-                      <Link 
-                        to="/profile" 
+                      <Link
+                        to="/profile"
                         className="flex items-center px-4 py-2.5 text-sm text-stone-700 hover:bg-rose-50 hover:text-rose-600 transition-colors"
                       >
                         <UserCircle size={16} className="mr-3 text-stone-400 group-hover:text-rose-500" />
                         會員中心
                       </Link>
 
-                      <Link 
-                        to="/orders" 
+                      <Link
+                        to="/orders"
                         className="flex items-center px-4 py-2.5 text-sm text-stone-700 hover:bg-rose-50 hover:text-rose-600 transition-colors"
                       >
                         <Package size={16} className="mr-3 text-stone-400 group-hover:text-rose-500" />
                         我的訂單
                       </Link>
-                      
-                      <button 
+
+                      <button
                         onClick={handleLogout}
                         className="w-full flex items-center px-4 py-2.5 text-sm text-stone-700 hover:bg-rose-50 hover:text-rose-600 transition-colors text-left"
                       >
@@ -92,8 +92,8 @@ const Navbar: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <Link 
-                to="/login" 
+              <Link
+                to="/login"
                 className="flex items-center bg-rose-600 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-rose-700 hover:shadow-lg hover:shadow-rose-200 transition-all transform hover:-translate-y-0.5"
               >
                 <span>登入</span>
